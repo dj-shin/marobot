@@ -1,63 +1,9 @@
 #-*- coding: utf-8 -*-
 
 import socket, ssl
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, Boolean
-from sqlalchemy.orm import sessionmaker
-from datetime import datetime
-import re
-
-
-Base = declarative_base()
-
-class Work(Base):
-    __tablename__ = 'work'
-    id = Column(Integer, primary_key=True)
-    name = Column(String(128), nullable=False)
-    due = Column(DateTime, nullable=True)
-    finished = Column(DateTime, nullable=True)
-    done = Column(Boolean)
-
-    def __init__(self, name, due=None):
-        self.name = name
-        if due != None:
-            if len(due) == 4:
-                self.due = datetime(datetime.today().year, int(due[:2]), int(due[2:4]))
-            elif len(due) == 6:
-                self.due = datetime(datetime.today().year, int(due[:2]), int(due[2:4]), hour=int(due[4:6]))
-            elif len(due) == 8:
-                self.due = datetime(datetime.today().year, int(due[:2]), int(due[2:4]), hour=int(due[4:6]), minute=int(due[6:8]))
-            else:
-                self.due = None
-        else:
-            self.due = None
-        self.done = False
-
-    def __repr__(self):
-        return (self.name + (' - %s까지' % (self.due) if self.due != None else ''))
-
-engine = create_engine('mysql://workbot:workbotpassword@localhost/workbot?charset=utf8&use_unicode=0')
-dbSession = sessionmaker()
-dbSession.configure(bind=engine)
-dao = None
-
-def init_db():
-    Base.metadata.create_all(engine)
-    global dao
-    dao = dbSession()
-
-
-def reset_db():
-    for table in reversed(Base.metadata.sorted_tables):
-        engine.execute(table.delete())
-    Base.metadata.drop_all(engine)
-    Base.metadata.create_all(engine)
-
-
-server = 'irc.uriirc.org'
-port = 16664
-botname = 'marobot'
-botnick = '업무봇'
+from setting import server, port, botname, botnick
+from ircmessage import IRCMessage
+from work import Work, dao, init_db
 
 
 def ping():
@@ -78,36 +24,6 @@ def partchan(chan):
 
 def chanlist():
     ircsock.send('WHOIS '+ botnick +'\n')
-
-
-class IRCMessage():
-    msgType = None
-    sender = None
-    channel = None
-    msg = None
-
-    def __init__(self, origMessage):
-        self.msgType = origMessage.split()[1]
-        if self.msgType == 'PRIVMSG':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-            self.msg = origMessage[ origMessage[2:].find(':') + 3 : ]
-            print self.msg
-        elif self.msgType == 'MODE':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-            self.msg = 'OP' if origMessage.split()[3] == '+o' else 'DEOP'
-        elif self.msgType == 'KICK':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-        elif self.msgType == 'JOIN':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-        elif self.msgType == 'INVITE':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[3][1:]
-        else:
-            pass
 
 
 def run_bot():
