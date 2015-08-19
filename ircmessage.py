@@ -1,4 +1,5 @@
 #-*- coding: utf-8 -*-
+import re
 
 class IRCMessage():
     msgType = None
@@ -7,24 +8,16 @@ class IRCMessage():
     msg = None
 
     def __init__(self, origMessage):
-        self.msgType = origMessage.split()[1]
-        if self.msgType == 'PRIVMSG':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-            self.msg = origMessage[ origMessage[2:].find(':') + 3 : ]
-            print self.msg
-        elif self.msgType == 'MODE':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-            self.msg = 'OP' if origMessage.split()[3] == '+o' else 'DEOP'
-        elif self.msgType == 'KICK':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-        elif self.msgType == 'JOIN':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[2]
-        elif self.msgType == 'INVITE':
-            self.sender = origMessage.split()[0].split('~')[1]
-            self.channel = origMessage.split()[3][1:]
+        parse = re.search(r':.*!~(.*)\s+(\w+)\s+(.*?)\s+:?(.*)', origMessage)
+        if parse:
+            self.sender = parse.group(1)
+            self.msgType = parse.group(2)
+            self.channel = parse.group(3)
+            self.msg = parse.group(4)
+            if self.msgType == 'INVITE':
+                self.channel = parse.group(4)
         else:
             pass
+
+    def __repr__(self):
+        return '<IRCMessage : %s %s %s %s>' % (self.msgType, self.sender, self.channel, self.msg)
