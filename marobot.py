@@ -72,7 +72,7 @@ def run_bot():
                         limit = int(parse.group('limit').decode('utf-8'))
                     for work in worklist[:limit]:
                         sendmsg(message.channel, '%s' % work)
-            if re.match(ur'업무봇\s+(추가|제거|삭제|변경)\s*(.*)', message.msg):
+            if re.match(ur'업무봇\s+(추가|제거|삭제|완료|종료)\s*(.*)', message.msg):
                 if message.sender != 'lastone81@175.197.23.22':
                     sendmsg(message.channel, '봇 주인만 업무 관리를 할 수 있습니다')
                 else:
@@ -91,9 +91,6 @@ def run_bot():
                     parse = re.match(ur'업무봇\s+추가\s+(?P<content>.*)', message.msg)
                     if parse:
                         work_parse = work_pattern.match(parse.group('content'))
-                        print work_parse.group('title')
-                        print work_parse.group('due_day')
-                        print work_parse.group('due_time')
                         if work_parse:
                             newWork = Work(work_parse.group('title'), work_parse.group('due_day'), work_parse.group('due_time'))
                             dao.add(newWork)
@@ -107,10 +104,19 @@ def run_bot():
 
                     parse = re.match(ur'업무봇\s+(제거|삭제)\s+(?P<content>.*)', message.msg)
                     if parse:
-                        work = dao.query(Work).filter(Work.name == parse.group('content'))
+                        print parse.group('content')
+                        work = dao.query(Work).filter(Work.name == parse.group('content')).first()
                         dao.delete(work)
                         dao.commit()
                         sendmsg(message.channel, '%s 제거되었습니다' % work)
+
+                    parse = re.match(ur'업무봇\s+(완료|종료)\s+(?P<content>.*)', message.msg)
+                    if parse:
+                        work = dao.query(Work).filter(Work.name == parse.group('content')).first()
+                        work.done = True
+                        work.finished = datetime.now()
+                        dao.add(work)
+                        dao.commit()
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

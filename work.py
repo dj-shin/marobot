@@ -57,12 +57,13 @@ class Work(Base):
                 origin = origin.replace(month=int(parse.group('month')))
             origin = origin.replace(day=int(parse.group('day')))
 
-        parse = re.search(ur'(?P<hour>\d+)시\s*((?P<minute>\d+)분|반)?', due_time)
+        parse = re.search(ur'(?P<hour>\d+)시\s*(?P<minuteType>(?P<minute>\d+)분|반)?', due_time)
         if parse:
             origin = origin.replace(hour=int(parse.group('hour')), second=0)
-            if parse.group('minute'):
+            print parse.group('minuteType')
+            if parse.group('minute') == None:
                 origin = origin.replace(minute=0)
-            elif parse.group('minute') == u'반':
+            if parse.group('minuteType') == u'반':
                 origin = origin.replace(minute=30)
             else:
                 origin = origin.replace(minute=int(parse.group('minute')))
