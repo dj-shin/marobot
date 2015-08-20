@@ -15,31 +15,50 @@ Base = declarative_base()
 class Work(Base):
     __tablename__ = 'work'
     id = Column(Integer, primary_key=True)
-    name = Column(String(128), nullable=False)
+    name = Column(String(128), unique=True, nullable=False)
     due = Column(DateTime, nullable=True)
     finished = Column(DateTime, nullable=True)
     done = Column(Boolean)
 
-    def __init__(self, name, due=None):
+    def __init__(self, name, due_day='', due_time=''):
         self.name = name
         # Due 형식
         # ~주 ~요일 ()
         # 날짜 : (~월) ~일 ~시 ~분(반), (~월) ~일 ~시, (~월) ~일
         # 월일시분, 월일시, 월일
-        parse = re.search(ur'(다+음|이번)주\s+([월화수목금토일])요일\s*(.*)', due.decode('utf-8'))
+        origin = datetime.today()
+        
+        parse = re.search(ur'(?P<week>다+음|이번)\s*주\s+(?P<weekday>[월화수목금토일])요일', due_day)
         if parse:
-            week_origin = None
-            if parse.group(1) == u'이번':
-                week_origin = datetime.today() - timedelta(days=datetime.today().weekday())
+            origin -= timedelta(days=datetime.today().weekday())
+            if parse.group('week') != u'이번':
+                origin += timedelta(weeks=len(parse.group('week'))-1)
+            origin += timedelta(days=Week[parse.group('weekday')])
+
+        parse = re.search(ur'(?P<dayType>오늘|내일|모레|(?P<days>\d+)일\s*후)', due_day)
+        if parse:
+            if parse.group('dayType') == u'오늘':
+                pass
+            elif parse.group('dayType') == u'내일':
+                origin += timedelta(days=1)
+            elif parse.group('dayType') == u'모레':
+                origin += timedelta(days=2)
             else:
-                week_origin = datetime.today() + timedelta(weeks=len(parse.group(1))-1) - timedelta(days=datetime.today().weekday())
-            self.due = (week_origin + timedelta(days=Week[parse.group(2)])).replace(hour=0, minute=0, second=0, microsecond=0)
+                origin += timedelta(days=int(parse.group('days')))
+
+        parse = re.search(ur'((?P<month>\d+)월)?\s*(?P<day>\d+)일', due_day)
+        if parse:
+            if parse.group('month'):
+                origin = origin.replace(month=int(parse.group('month')))
+            origin = origin.replace(day=int(parse.group('day')))
+
+        self.due = origin
 
         self.finished = None
         self.done = False
 
     def __repr__(self):
-        return (self.name + (' - %s까지' % (self.due) if self.due != None else ''))
+        return (self.name + (' (%s)' % (self.due) if self.due != None else ''))
 
 engine = create_engine(DB_URL)
 dbSession = sessionmaker()

@@ -3,7 +3,9 @@
 import socket, ssl
 from setting import server, port, botname, botnick
 from ircmessage import IRCMessage
-from work import Work, dao, init_db
+from work import Work, init_db
+from sqlalchemy import exc
+import re
 
 
 def ping():
@@ -42,6 +44,7 @@ def run_bot():
             continue
 
         message = IRCMessage(ircmsg)
+        print message
 
         if message.msgType == 'INVITE':
             joinchan(message.channel)
@@ -49,43 +52,65 @@ def run_bot():
             sendmsg(message.channel, '업무 추가/제거는 주인만 가능하고 열람은 자유입니다')
 
         elif message.msgType == 'MODE':
-            if message.msg == 'OP':
+            if message.msg == u'+o 업무봇':
                 sendmsg(message.channel, '감사합니다 :)')
+            if message.msg == u'-o 업무봇':
+                sendmsg(message.channel, '......')
 
         elif message.msgType == 'PRIVMSG':
-            if message.msg[:9] == '업무봇':
-                if message.msg[10:16] == '조회':
-                    # 업무 조회
-                    worklist = dao.query(Work).filter(Work.done == False).order_by(Work.due)
-                    if worklist.count() == 0:
-                        sendmsg(message.channel, '남은 할 일이 없습니다')
-                    else:
-                        sendmsg(message.channel, '할 일 목록 :')
-                        for work in worklist:
-                            sendmsg(message.channel, '%s' % work)
-                if message.sender == 'lastone81@175.197.23.22':
-                    if message.msg[10:16] == '추가':
-                        # 업무 추가
-                        try:
-                            message.msg[17:].split()[1]
-                        except IndexError:
-                            newWork = Work(message.msg[17:])
-                        else:
-                            newWork = Work(message.msg[17:message.msg.rfind(' ')], message.msg[message.msg.rfind(' ') + 1:])
-                        dao.add(newWork)
-                        dao.commit()
-                        sendmsg(message.channel, '%s 추가되었습니다' % newWork)
-                    elif message.msg[10:16] == '제거' or message.msg[10:16] == '삭제':
-                        # 업무 제거
-                        for work in dao.query(Work).filter(Work.name == message.msg[17:]):
+            parse = re.match(ur'업무봇\s+조회\s*(?P<limit>전체|[0-9]+)?', message.msg)
+            if parse:
+                worklist = dao.query(Work).filter(Work.done == False).order_by(Work.due)
+                if worklist.count() == 0:
+                    sendmsg(message.channel, '남은 할 일이 없습니다')
+                else:
+                    sendmsg(message.channel, '할 일 목록 :')
+                    limit = 5
+                    if parse.group('limit') == u'전체':
+                        limit = None
+                    elif parse.group('limit') != None:
+                        limit = int(parse.group('limit').decode('utf-8'))
+                    for work in worklist[:limit]:
+                        sendmsg(message.channel, '%s' % work)
+            if re.match(ur'업무봇\s+(추가|제거|삭제|변경)\s*(.*)', message.msg):
+                if message.sender != 'lastone81@175.197.23.22':
+                    sendmsg(message.channel, '봇 주인만 업무 관리를 할 수 있습니다')
+                else:
+                    work_pattern = re.compile(ur'''
+                        (?P<due_day>
+                                (((다)+음|이번)주\s+(월|화|수|목|금|토|일)요일)
+                            |   (오늘|내일|모레|\d+일\s*후)
+                            |   ((\d+월\s*)?\d+일)
+                        )?\s*
+                        (?P<due_time>
+                                (\d+시\s*((\d+분)|반)?)
+                        )?\s*
+                        (?P<title>.*)
+                        ''', re.VERBOSE)
+
+                    parse = re.match(ur'업무봇\s+추가\s+(?P<content>.*)', message.msg)
+                    if parse:
+                        work_parse = work_pattern.match(parse.group('content'))
+                        print work_parse.group('title')
+                        print work_parse.group('due_day')
+                        print work_parse.group('due_time')
+                        if work_parse:
+                            newWork = Work(work_parse.group('title'), work_parse.group('due_day'), work_parse.group('due_time'))
+                            dao.add(newWork)
+                            try:
+                                dao.commit()
+                            except exc.SQLAlchemyError:
+                                sendmsg(message.channel, '이미 존재하는 업무입니다')
+                                dao.rollback()
+                            else:
+                                sendmsg(message.channel, '%s 추가되었습니다' % newWork)
+
+                    parse = re.match(ur'업무봇\s+(제거|삭제)\s+(?P<content>.*)', message.msg)
+                    if parse:
+                        for work in dao.query(Work).filter(Work.name == parse.group('content')):
                             dao.delete(work)
                             dao.commit()
                             sendmsg(message.channel, '%s 제거되었습니다' % work)
-                else:
-                    sendmsg(message.channel, '봇 주인만 업무 관리를 할 수 있습니다')
-
-        else:
-            pass
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -97,4 +122,5 @@ ircsock.send('NICK '+ botnick +'\n')
 
 if __name__ == '__main__':
     init_db()
+    from work import dao
     run_bot()
