@@ -61,10 +61,10 @@ class Work(Base):
         if parse:
             origin = origin.replace(hour=int(parse.group('hour')), second=0)
             print parse.group('minuteType')
-            if parse.group('minute') == None:
-                origin = origin.replace(minute=0)
             if parse.group('minuteType') == u'반':
                 origin = origin.replace(minute=30)
+            elif parse.group('minute') == None:
+                origin = origin.replace(minute=0)
             else:
                 origin = origin.replace(minute=int(parse.group('minute')))
         else:
