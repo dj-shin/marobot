@@ -20,14 +20,19 @@ class Work(Base):
     finished = Column(DateTime, nullable=True)
     done = Column(Boolean)
 
-    def __init__(self, name, due_day='', due_time=''):
+    def __init__(self, name, due_day, due_time):
         self.name = name
         # Due 형식
         # ~주 ~요일 ()
         # 날짜 : (~월) ~일 ~시 ~분(반), (~월) ~일 ~시, (~월) ~일
         # 월일시분, 월일시, 월일
-        origin = datetime.today()
+        origin = datetime.today().replace(microsecond=0)
         
+        if due_day is None:
+            due_day = ''
+        if due_time is None:
+            due_time = ''
+
         parse = re.search(ur'(?P<week>다+음|이번)\s*주\s+(?P<weekday>[월화수목금토일])요일', due_day)
         if parse:
             origin -= timedelta(days=datetime.today().weekday())
@@ -51,6 +56,18 @@ class Work(Base):
             if parse.group('month'):
                 origin = origin.replace(month=int(parse.group('month')))
             origin = origin.replace(day=int(parse.group('day')))
+
+        parse = re.search(ur'(?P<hour>\d+)시\s*((?P<minute>\d+)분|반)?', due_time)
+        if parse:
+            origin = origin.replace(hour=int(parse.group('hour')), second=0)
+            if parse.group('minute'):
+                origin = origin.replace(minute=0)
+            elif parse.group('minute') == u'반':
+                origin = origin.replace(minute=30)
+            else:
+                origin = origin.replace(minute=int(parse.group('minute')))
+        else:
+            origin = origin.replace(hour=23, minute=59, second=59)
 
         self.due = origin
 

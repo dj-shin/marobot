@@ -78,7 +78,7 @@ def run_bot():
                 else:
                     work_pattern = re.compile(ur'''
                         (?P<due_day>
-                                (((다)+음|이번)주\s+(월|화|수|목|금|토|일)요일)
+                                ((다+음|이번)주\s+[월화수목금토일]요일)
                             |   (오늘|내일|모레|\d+일\s*후)
                             |   ((\d+월\s*)?\d+일)
                         )?\s*
@@ -107,10 +107,10 @@ def run_bot():
 
                     parse = re.match(ur'업무봇\s+(제거|삭제)\s+(?P<content>.*)', message.msg)
                     if parse:
-                        for work in dao.query(Work).filter(Work.name == parse.group('content')):
-                            dao.delete(work)
-                            dao.commit()
-                            sendmsg(message.channel, '%s 제거되었습니다' % work)
+                        work = dao.query(Work).filter(Work.name == parse.group('content'))
+                        dao.delete(work)
+                        dao.commit()
+                        sendmsg(message.channel, '%s 제거되었습니다' % work)
 
 
 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)

@@ -9,7 +9,7 @@ class IRCMessage():
     target = None
 
     def __init__(self, origMessage):
-        parse = re.search(r':.*!~(.*)\s+(\w+)\s+(.*?)\s+:?(.*)', origMessage)
+        parse = re.search(r':.*!~(\S+)\s+(\S+)\s+(.*?)\s+:?(.*)', origMessage)
         if parse:
             self.sender = parse.group(1)
             self.msgType = parse.group(2)
